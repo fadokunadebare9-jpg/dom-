@@ -326,8 +326,11 @@ footer .ehl-badge{border:1.5px solid #5a6e8a;color:#5a6e8a;font-size:9.5px;font-
 .bio-btn:active{transform:translateY(0);}
 .bio-btn svg{width:22px;height:22px;color:#0a3880;}
 
-/* security badge */
-.auth-secure{display:flex;align-items:center;justify-content:center;gap:6px;font-size:11px;color:#8891aa;margin-top:20px;}
+/* biometric scanning state */
+.bio-btn.scanning{border-color:#0a3880;background:#eef3ff;animation:bioScan .9s ease-in-out infinite alternate;pointer-events:none;}
+@keyframes bioScan{from{box-shadow:0 0 0 0 rgba(10,56,128,.15);}to{box-shadow:0 0 0 6px rgba(10,56,128,0);}}
+.bio-btn:disabled{opacity:.6;cursor:not-allowed;pointer-events:none;}
+
 
 /* success screen */
 #reg-success{display:none;text-align:center;padding:32px 24px;}
@@ -418,16 +421,16 @@ footer .ehl-badge{border:1.5px solid #5a6e8a;color:#5a6e8a;font-size:9.5px;font-
           </div>
           <div class="auth-card-body">
 
-            <div class="biometric-row">
-              <button class="bio-btn" onclick="alert('Face ID authentication coming soon.')">
+            <div class="biometric-row" id="bio-row">
+              <button class="bio-btn" id="bio-face-btn" onclick="biometricAuth('face')">
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
                   <path d="M4 8V6a2 2 0 0 1 2-2h2"/><path d="M16 4h2a2 2 0 0 1 2 2v2"/><path d="M20 16v2a2 2 0 0 1-2 2h-2"/><path d="M8 20H6a2 2 0 0 1-2-2v-2"/>
                   <circle cx="9" cy="11" r=".7" fill="currentColor" stroke="none"/><circle cx="15" cy="11" r=".7" fill="currentColor" stroke="none"/>
                   <path d="M9 15c1 .9 2 .9 3 0"/>
                 </svg>
-                Face ID
+                <span id="bio-face-label">Face ID</span>
               </button>
-              <button class="bio-btn" onclick="alert('Fingerprint authentication coming soon.')">
+              <button class="bio-btn" id="bio-fp-btn" onclick="biometricAuth('fingerprint')">
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
                   <path d="M12 11.5a2.8 2.8 0 0 1 2.8 2.8c0 2.8-1 4.7-2 5.9"/>
                   <path d="M9.2 19c1.3-1.8 1.8-3.5 1.8-4.7a1 1 0 0 1 2 0"/>
@@ -435,9 +438,10 @@ footer .ehl-badge{border:1.5px solid #5a6e8a;color:#5a6e8a;font-size:9.5px;font-
                   <path d="M4 12.3a8 8 0 0 1 16 0c0 1-.1 1.9-.3 2.7"/>
                   <path d="M8.3 8.7a4.2 4.2 0 0 1 7.4.6"/>
                 </svg>
-                Fingerprint
+                <span id="bio-fp-label">Fingerprint</span>
               </button>
             </div>
+            <div id="bio-status" style="display:none;font-size:12px;text-align:center;padding:8px 12px;border-radius:6px;margin-bottom:12px;font-weight:600;"></div>
             <div class="auth-divider"><span>or sign in with credentials</span></div>
 
             <div class="af-row">
@@ -3030,6 +3034,200 @@ function calcMortgage(){
 function branchSearch(){
   const v=document.getElementById('branch-search').value.trim();
   if(v) alert('Searching for DOM Bank locations near "'+v+'"… Results shown below are sample data for demonstration.');
+}
+
+// ===== BIOMETRICS (WebAuthn / Platform Authenticator) =====
+(function initBiometrics() {
+  // Detect platform to set friendly button labels
+  const ua = navigator.userAgent || '';
+  const isIOS = /iPhone|iPad|iPod/.test(ua);
+  const isAndroid = /Android/.test(ua);
+  const isMac = /Macintosh/.test(ua) && !isIOS;
+
+  function setLabel(id, text) {
+    const el = document.getElementById(id);
+    if (el) el.textContent = text;
+  }
+
+  if (isIOS) {
+    setLabel('bio-face-label', 'Face ID');
+    setLabel('bio-fp-label', 'Touch ID');
+  } else if (isAndroid) {
+    setLabel('bio-face-label', 'Face Unlock');
+    setLabel('bio-fp-label', 'Fingerprint');
+  } else if (isMac) {
+    setLabel('bio-face-label', 'Face ID');
+    setLabel('bio-fp-label', 'Touch ID');
+  } else {
+    setLabel('bio-face-label', 'Face ID');
+    setLabel('bio-fp-label', 'Fingerprint');
+  }
+
+  // Hide biometric row entirely if WebAuthn not supported
+  if (!window.PublicKeyCredential) {
+    const row = document.getElementById('bio-row');
+    if (row) row.style.display = 'none';
+  } else {
+    // Check if a platform authenticator (Face ID / fingerprint sensor) is available
+    PublicKeyCredential.isUserVerifyingPlatformAuthenticatorAvailable()
+      .then(available => {
+        if (!available) {
+          const row = document.getElementById('bio-row');
+          if (row) row.style.display = 'none';
+        }
+      })
+      .catch(() => {});
+  }
+})();
+
+// Storage key for the demo credential id
+const BIO_CRED_KEY = 'dombank_bio_credId';
+
+// Encode/decode helpers
+function bufToB64(buf) {
+  return btoa(String.fromCharCode(...new Uint8Array(buf)));
+}
+function b64ToBuf(b64) {
+  const bin = atob(b64);
+  const buf = new Uint8Array(bin.length);
+  for (let i = 0; i < bin.length; i++) buf[i] = bin.charCodeAt(i);
+  return buf.buffer;
+}
+function rnd(n) {
+  const a = new Uint8Array(n);
+  crypto.getRandomValues(a);
+  return a;
+}
+
+function setBioStatus(msg, type) {
+  // type: 'info' | 'success' | 'error'
+  const el = document.getElementById('bio-status');
+  if (!el) return;
+  el.style.display = msg ? 'block' : 'none';
+  el.textContent = msg || '';
+  const styles = {
+    info:    { background: '#eef3ff', color: '#0a3880', border: '1px solid #bfcde8' },
+    success: { background: '#ddf2e8', color: '#1a7a44', border: '1px solid #9adbb8' },
+    error:   { background: '#fff3f3', color: '#c8202d', border: '1px solid #f5c2c7' },
+  };
+  const s = styles[type] || styles.info;
+  Object.assign(el.style, s);
+}
+
+async function biometricAuth(type) {
+  if (!window.PublicKeyCredential) {
+    setBioStatus('Biometric authentication is not supported in this browser.', 'error');
+    return;
+  }
+
+  // Disable buttons while authenticating
+  const faceBtn = document.getElementById('bio-face-btn');
+  const fpBtn   = document.getElementById('bio-fp-btn');
+  if (faceBtn) { faceBtn.disabled = true; faceBtn.classList.add('scanning'); }
+  if (fpBtn)   { fpBtn.disabled   = true; fpBtn.classList.add('scanning'); }
+
+  setBioStatus('Waiting for biometric confirmation…', 'info');
+
+  try {
+    const storedCredId = localStorage.getItem(BIO_CRED_KEY);
+
+    if (storedCredId) {
+      // ── AUTHENTICATE with existing credential ──
+      await authenticateWithBiometric(storedCredId);
+    } else {
+      // ── REGISTER a new credential first, then authenticate ──
+      await registerBiometric();
+      await authenticateWithBiometric(localStorage.getItem(BIO_CRED_KEY));
+    }
+
+    setBioStatus('Biometric verified! Signing you in…', 'success');
+    setTimeout(() => doLoginBiometric(), 700);
+
+  } catch (err) {
+    if (fpBtn)   { fpBtn.disabled   = false; fpBtn.classList.remove('scanning'); }
+    if (faceBtn) { faceBtn.disabled = false; faceBtn.classList.remove('scanning'); }
+
+    if (err.name === 'NotAllowedError') {
+      setBioStatus('Biometric prompt was cancelled or timed out. Please try again.', 'error');
+    } else if (err.name === 'InvalidStateError') {
+      // Credential already exists – just try authenticating
+      try {
+        const credId = localStorage.getItem(BIO_CRED_KEY);
+        if (credId) {
+          await authenticateWithBiometric(credId);
+          setBioStatus('Biometric verified! Signing you in…', 'success');
+          setTimeout(() => doLoginBiometric(), 700);
+          return;
+        }
+      } catch (e2) { /* fall through */ }
+      setBioStatus('Biometric setup error. Please sign in with your credentials.', 'error');
+    } else if (err.name === 'NotSupportedError' || err.name === 'SecurityError') {
+      setBioStatus('Biometrics not available on this device or connection. Use credentials below.', 'error');
+      const row = document.getElementById('bio-row');
+      if (row) row.style.display = 'none';
+    } else {
+      setBioStatus('Biometric authentication failed. Please use your credentials.', 'error');
+    }
+  }
+}
+
+async function registerBiometric() {
+  // Requires a secure context (https or localhost)
+  const rpId = location.hostname || 'localhost';
+  const userId = rnd(16);
+
+  const publicKey = {
+    challenge: rnd(32),
+    rp: {
+      name: 'DOM Bank',
+      id: rpId,
+    },
+    user: {
+      id: userId,
+      name: 'dombank-user',
+      displayName: 'DOM Bank User',
+    },
+    pubKeyCredParams: [
+      { type: 'public-key', alg: -7  },  // ES256
+      { type: 'public-key', alg: -257 }, // RS256
+    ],
+    authenticatorSelection: {
+      authenticatorAttachment: 'platform',  // device-local (Face ID / fingerprint)
+      userVerification: 'required',         // must pass biometric gate
+      residentKey: 'preferred',
+    },
+    timeout: 60000,
+    attestation: 'none',
+  };
+
+  const credential = await navigator.credentials.create({ publicKey });
+  // Save credential id so we can authenticate later
+  localStorage.setItem(BIO_CRED_KEY, bufToB64(credential.rawId));
+}
+
+async function authenticateWithBiometric(credIdB64) {
+  if (!credIdB64) throw new Error('No credential registered');
+
+  const rpId = location.hostname || 'localhost';
+
+  const publicKey = {
+    challenge: rnd(32),
+    rpId,
+    allowCredentials: [{
+      type: 'public-key',
+      id: b64ToBuf(credIdB64),
+      transports: ['internal'],  // platform authenticator
+    }],
+    userVerification: 'required',
+    timeout: 60000,
+  };
+
+  await navigator.credentials.get({ publicKey });
+}
+
+function doLoginBiometric() {
+  // Reuse the same fade-out transition as password login
+  enterApp();
 }
 
 document.getElementById('signout-btn').addEventListener('click',()=>{
