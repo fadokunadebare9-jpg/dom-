@@ -2,21 +2,30 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8"/>
-<meta name="viewport" content="width=device-width,initial-scale=1.0"/>
+<meta name="viewport" content="width=device-width,initial-scale=1.0,maximum-scale=1.0,viewport-fit=cover"/>
+<meta name="theme-color" content="#0a1a3a"/>
+<meta name="apple-mobile-web-app-capable" content="yes"/>
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent"/>
+<meta name="mobile-web-app-capable" content="yes"/>
 <title>DOM Bank — Online Banking</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 40 40'%3E%3Crect width='40' height='40' rx='10' fill='%230a1a3a'/%3E%3Crect x='10.5' y='20' width='5' height='11' rx='1.2' fill='%23ffffff' fill-opacity='.55'/%3E%3Crect x='17.5' y='14' width='5' height='17' rx='1.2' fill='%23ffffff' fill-opacity='.85'/%3E%3Crect x='24.5' y='8' width='5' height='23' rx='1.2' fill='%23c8202d'/%3E%3C/svg%3E"/>
 <style>
-*{box-sizing:border-box;margin:0;padding:0;}
-body{font-family:'Segoe UI',system-ui,-apple-system,sans-serif;background:#f1f3f5;font-size:14px;color:#1a1f36;}
-button,input,select{font-family:inherit;font-size:14px;}
+*{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent;}
+html{-webkit-text-size-adjust:100%;}
+body{font-family:'Segoe UI',system-ui,-apple-system,sans-serif;background:#f1f3f5;font-size:14px;color:#1a1f36;overscroll-behavior-y:none;}
+button,input,select{font-family:inherit;font-size:14px;touch-action:manipulation;}
+button{-webkit-appearance:none;appearance:none;}
 input:focus,select:focus{outline:2px solid #0a3880;outline-offset:1px;}
 a{color:#0a3880;text-decoration:none;}
 
-#topbar{background:#0a1a3a;color:#8a9dc0;padding:6px 32px;display:flex;justify-content:space-between;font-size:11.5px;letter-spacing:.01em;}
+#topbar{background:#0a1a3a;color:#8a9dc0;padding:6px 32px;padding-top:calc(6px + env(safe-area-inset-top,0px));display:flex;justify-content:space-between;font-size:11.5px;letter-spacing:.01em;}
 
 #header{background:#fff;border-bottom:3px solid #c8202d;padding:0 32px;display:flex;align-items:center;position:sticky;top:0;z-index:100;box-shadow:0 1px 4px rgba(0,0,0,.08);}
-#logo{display:flex;flex-direction:column;justify-content:center;padding-right:24px;border-right:1px solid #e2e4ea;margin-right:4px;cursor:pointer;text-decoration:none;line-height:1;}
-#logo .logo-main{font-weight:900;font-size:20px;letter-spacing:-1px;color:#0a1a3a;}
-#logo .logo-sub{font-size:8.5px;font-weight:600;letter-spacing:4px;color:#c8202d;margin-top:2px;text-transform:uppercase;}
+#logo{display:flex;align-items:center;gap:10px;padding-right:20px;border-right:1px solid #e2e4ea;margin-right:4px;cursor:pointer;text-decoration:none;line-height:1;}
+#logo .brand-mark{width:34px;height:34px;flex-shrink:0;}
+#logo .logo-text{display:flex;flex-direction:column;justify-content:center;}
+#logo .logo-main{font-weight:900;font-size:19px;letter-spacing:-.7px;color:#0a1a3a;}
+#logo .logo-sub{font-size:8.5px;font-weight:600;letter-spacing:3.5px;color:#c8202d;margin-top:2px;text-transform:uppercase;}
 nav button{background:none;border:none;border-bottom:3px solid transparent;cursor:pointer;padding:18px 13px;font-size:12.5px;font-weight:400;color:#5a6380;white-space:nowrap;transition:color .15s;}
 nav button:hover{color:#0a1a3a;}
 nav button.active{border-bottom:3px solid #0a3880;font-weight:700;color:#0a1a3a;}
@@ -186,6 +195,809 @@ footer .ehl-badge{border:1.5px solid #5a6e8a;color:#5a6e8a;font-size:9.5px;font-
 </head>
 <body>
 
+<!-- ═══════════════════════════════════════════════════════
+     AUTH LAYER — Splash · Login · Register
+     Sits on top of the entire app; hidden after auth
+═══════════════════════════════════════════════════════ -->
+<style>
+/* ---------- reset for auth layer ---------- */
+#auth-layer *{box-sizing:border-box;margin:0;padding:0;}
+#auth-layer{position:fixed;inset:0;z-index:9999;font-family:'Segoe UI',system-ui,-apple-system,sans-serif;}
+
+/* ---------- SPLASH ---------- */
+#splash{position:absolute;inset:0;background:#0a1a3a;display:flex;flex-direction:column;align-items:center;justify-content:center;overflow:hidden;padding:env(safe-area-inset-top,0) env(safe-area-inset-right,0) env(safe-area-inset-bottom,0) env(safe-area-inset-left,0);}
+#splash-bg{position:absolute;inset:0;background:radial-gradient(ellipse 80% 60% at 50% 110%,#1a3a6e 0%,#0a1a3a 70%);pointer-events:none;}
+/* animated rings — sized in vmin so they never feel cramped or oversized on any phone */
+.splash-ring{position:absolute;border-radius:50%;border:1px solid rgba(255,255,255,.06);animation:ringPulse 3s ease-out infinite;}
+.splash-ring:nth-child(1){width:min(78vw,62vh,320px);height:min(78vw,62vh,320px);animation-delay:0s;}
+.splash-ring:nth-child(2){width:min(122vw,98vh,500px);height:min(122vw,98vh,500px);animation-delay:.4s;}
+.splash-ring:nth-child(3){width:min(170vw,136vh,700px);height:min(170vw,136vh,700px);animation-delay:.8s;}
+@keyframes ringPulse{0%{opacity:0;transform:scale(.7);}40%{opacity:1;}100%{opacity:0;transform:scale(1.15);}}
+
+#splash-logo{position:relative;text-align:center;animation:splashLogoIn 1s cubic-bezier(.22,1,.36,1) .3s both;padding:0 20px;}
+@keyframes splashLogoIn{from{opacity:0;transform:translateY(24px) scale(.9);}to{opacity:1;transform:none;}}
+#splash-mark{width:clamp(56px,16vw,76px);height:clamp(56px,16vw,76px);margin:0 auto 18px;display:block;filter:drop-shadow(0 8px 24px rgba(0,0,0,.35));animation:splashMarkIn 1.3s cubic-bezier(.22,1,.36,1) .15s both;}
+@keyframes splashMarkIn{from{opacity:0;transform:scale(.6) rotate(-8deg);}to{opacity:1;transform:none;}}
+#splash-logo .s-main{font-size:clamp(32px,9vw,48px);font-weight:900;letter-spacing:-1.5px;color:#fff;line-height:1;}
+#splash-logo .s-sub{font-size:clamp(9.5px,2.6vw,11px);font-weight:700;letter-spacing:5px;color:#c8202d;text-transform:uppercase;margin-top:7px;display:block;}
+#splash-bar{width:0;height:3px;background:linear-gradient(90deg,#c8202d,#e05060);border-radius:2px;margin:28px auto 0;animation:barGrow 1.2s cubic-bezier(.4,0,.2,1) .9s both;}
+@keyframes barGrow{from{width:0;opacity:0;}to{width:140px;opacity:1;}}
+#splash-tagline{font-size:clamp(12px,3vw,13px);color:rgba(255,255,255,.45);margin-top:22px;letter-spacing:.5px;animation:splashLogoIn 1s .9s both;text-align:center;padding:0 24px;}
+#splash-fdic{position:absolute;bottom:calc(28px + env(safe-area-inset-bottom,0px));display:flex;align-items:center;gap:10px;animation:splashLogoIn .8s 1.4s both;padding:0 20px;text-align:center;flex-wrap:wrap;justify-content:center;}
+#splash-fdic .fdic-b{background:#c8202d;color:#fff;font-size:9px;font-weight:800;padding:3px 7px;border-radius:2px;letter-spacing:1px;flex-shrink:0;}
+#splash-fdic span{font-size:11px;color:rgba(255,255,255,.35);letter-spacing:.3px;}
+
+@media (prefers-reduced-motion: reduce){
+  .splash-ring,#splash-logo,#splash-mark,#splash-bar,#splash-tagline,#splash-fdic{animation:none !important;opacity:1 !important;transform:none !important;width:auto;}
+  #splash-bar{width:140px;}
+}
+
+/* ---------- shared auth card ---------- */
+#auth-screens{position:absolute;inset:0;display:none;overflow-y:auto;background:#f1f3f5;-webkit-overflow-scrolling:touch;}
+.auth-topbar{background:#0a1a3a;border-bottom:3px solid #c8202d;padding:0 32px;padding-top:env(safe-area-inset-top,0px);min-height:60px;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:6px 16px;}
+.auth-logo-wrap{display:flex;align-items:center;gap:9px;line-height:1;}
+.auth-logo-wrap .brand-mark{width:30px;height:30px;flex-shrink:0;}
+.auth-logo-wrap .al-text{display:flex;flex-direction:column;}
+.auth-logo-wrap .al-main{font-size:18px;font-weight:900;letter-spacing:-.6px;color:#fff;}
+.auth-logo-wrap .al-sub{font-size:8px;font-weight:700;letter-spacing:3.5px;color:#c8202d;text-transform:uppercase;margin-top:2px;}
+.auth-topbar-right{font-size:11.5px;color:rgba(255,255,255,.45);}
+
+.auth-shell{min-height:calc(100vh - 60px);min-height:calc(100dvh - 60px);display:flex;align-items:flex-start;justify-content:center;padding:40px 16px calc(60px + env(safe-area-inset-bottom,0px));}
+.auth-card{background:#fff;border-radius:10px;border:1px solid #dde0e7;box-shadow:0 8px 32px rgba(10,26,58,.12);width:100%;max-width:520px;overflow:hidden;}
+.auth-card-header{background:linear-gradient(135deg,#0a3880 0%,#0d2d63 100%);padding:28px 32px 24px;}
+.auth-card-header h1{font-size:22px;font-weight:800;color:#fff;letter-spacing:-.4px;margin-bottom:4px;}
+.auth-card-header p{font-size:13px;color:rgba(255,255,255,.65);}
+.auth-card-body{padding:28px 32px 32px;}
+
+/* step indicator */
+.reg-steps{display:flex;gap:0;margin-bottom:28px;border-radius:8px 8px 0 0;overflow:hidden;border:1px solid #dde0e7;border-bottom:none;}
+.reg-step{flex:1;padding:10px 6px;text-align:center;font-size:11px;font-weight:600;color:#8891aa;background:#f7f9ff;border-right:1px solid #dde0e7;transition:background .2s,color .2s;}
+.reg-step:last-child{border-right:none;}
+.reg-step.active{background:#0a3880;color:#fff;}
+.reg-step.done{background:#ddf2e8;color:#1a7a44;}
+
+/* form atoms */
+.af-row{margin-bottom:16px;}
+.af-label{font-size:12px;font-weight:600;color:#5a6380;margin-bottom:5px;display:flex;align-items:center;gap:4px;}
+.af-label .req{color:#c8202d;}
+.af-input{width:100%;padding:11px 13px;border-radius:7px;border:1.5px solid #c8cdd8;font-size:13.5px;color:#1a1f36;background:#fff;transition:border-color .15s,box-shadow .15s;}
+.af-input:hover{border-color:#aeb6c8;}
+.af-input:focus{border-color:#0a3880;outline:none;box-shadow:0 0 0 3px rgba(10,56,128,.10);}
+.af-input.err{border-color:#c8202d;background:#fff8f8;}
+.af-hint{font-size:11px;color:#8891aa;margin-top:4px;}
+.af-err{font-size:11.5px;color:#c8202d;margin-top:4px;font-weight:600;display:none;}
+.af-err.show{display:block;}
+.af-2col{display:grid;grid-template-columns:1fr 1fr;gap:12px;}
+.af-3col{display:grid;grid-template-columns:1fr 80px 1fr;gap:12px;}
+.af-select{width:100%;padding:11px 13px;border-radius:7px;border:1.5px solid #c8cdd8;font-size:13.5px;color:#1a1f36;background:#fff;appearance:none;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath d='M1 1l5 5 5-5' stroke='%238891aa' stroke-width='1.5' fill='none' stroke-linecap='round'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 13px center;transition:border-color .15s;}
+.af-select:hover{border-color:#aeb6c8;}
+.af-select:focus{border-color:#0a3880;outline:none;box-shadow:0 0 0 3px rgba(10,56,128,.10);}
+
+/* icon-prefixed inputs */
+.af-input-icon{position:relative;}
+.af-input-icon svg{position:absolute;left:13px;top:50%;transform:translateY(-50%);color:#9aa3b8;pointer-events:none;width:16px;height:16px;}
+.af-input-icon .af-input{padding-left:38px;}
+.af-input-icon .af-input:focus ~ svg,.af-input-icon:focus-within svg{color:#0a3880;}
+
+.pw-wrap{position:relative;}
+.pw-wrap .af-input{padding-right:60px;}
+.pw-wrap.af-input-icon .af-input{padding-right:60px;}
+.pw-toggle{position:absolute;right:12px;top:50%;transform:translateY(-50%);background:none;border:none;cursor:pointer;font-size:11px;font-weight:700;color:#0a3880;letter-spacing:.05em;padding:4px;}
+
+/* password strength */
+#pw-strength-bars{display:flex;gap:4px;margin-top:6px;}
+.psb{flex:1;height:4px;border-radius:2px;background:#edf0f5;transition:background .3s;}
+#pw-strength-label{font-size:11px;font-weight:600;margin-top:4px;}
+
+/* SSN mask */
+.ssn-wrap{position:relative;}
+.ssn-wrap .af-input{padding-right:60px;}
+
+/* checkbox */
+.af-check-row{display:flex;align-items:flex-start;gap:9px;margin-bottom:14px;}
+.af-check-row input[type=checkbox]{margin-top:3px;width:15px;height:15px;flex-shrink:0;accent-color:#0a3880;}
+.af-check-row label{font-size:12px;color:#1a1f36;line-height:1.6;cursor:pointer;}
+.af-check-row a{color:#0a3880;font-weight:600;}
+
+/* buttons */
+.auth-btn{width:100%;padding:13px;border-radius:8px;border:none;background:#0a3880;color:#fff;font-size:14px;font-weight:700;cursor:pointer;letter-spacing:.02em;transition:background .15s,transform .1s,box-shadow .15s;box-shadow:0 1px 2px rgba(10,26,58,.15);}
+.auth-btn:hover{background:#0e2456;box-shadow:0 4px 12px rgba(10,56,128,.25);}
+.auth-btn:active{transform:translateY(1px);}
+.auth-btn:disabled{background:#8891aa;cursor:not-allowed;box-shadow:none;}
+.auth-btn-out{width:100%;padding:13px;border-radius:8px;border:1.5px solid #0a3880;background:#fff;color:#0a3880;font-size:14px;font-weight:700;cursor:pointer;margin-top:10px;transition:background .15s,transform .1s;}
+.auth-btn-out:hover{background:#f0f5ff;}
+.auth-btn-out:active{transform:translateY(1px);}
+.auth-btn-icon{display:inline-flex;align-items:center;justify-content:center;gap:8px;}
+.auth-btn-icon svg{width:14px;height:14px;flex-shrink:0;transition:transform .15s;}
+.auth-btn-icon:hover svg.chev-r{transform:translateX(2px);}
+.auth-btn-icon:hover svg.chev-l{transform:translateX(-2px);}
+
+.auth-divider{display:flex;align-items:center;gap:12px;margin:20px 0;}
+.auth-divider span{font-size:11.5px;color:#8891aa;white-space:nowrap;}
+.auth-divider::before,.auth-divider::after{content:'';flex:1;height:1px;background:#dde0e7;}
+
+.auth-switch{text-align:center;font-size:13px;color:#5a6380;margin-top:20px;}
+.auth-switch a{color:#0a3880;font-weight:700;cursor:pointer;}
+
+/* biometric row */
+.biometric-row{display:flex;gap:10px;margin-bottom:20px;}
+.bio-btn{flex:1;display:flex;flex-direction:column;align-items:center;gap:7px;padding:14px 10px;border:1.5px solid #dde0e7;border-radius:8px;background:#f7f9ff;cursor:pointer;text-align:center;font-size:11.5px;color:#5a6380;font-weight:700;letter-spacing:.01em;transition:border-color .15s,background .15s,transform .15s;}
+.bio-btn:hover{border-color:#0a3880;color:#0a3880;background:#eef3ff;transform:translateY(-1px);}
+.bio-btn:active{transform:translateY(0);}
+.bio-btn svg{width:22px;height:22px;color:#0a3880;}
+
+/* security badge */
+.auth-secure{display:flex;align-items:center;justify-content:center;gap:6px;font-size:11px;color:#8891aa;margin-top:20px;}
+
+/* success screen */
+#reg-success{display:none;text-align:center;padding:32px 24px;}
+#reg-success .success-icon{width:72px;height:72px;background:#ddf2e8;border-radius:50%;display:flex;align-items:center;justify-content:center;margin:0 auto 20px;}
+#reg-success h2{font-size:22px;font-weight:800;color:#0a1a3a;margin-bottom:8px;}
+#reg-success p{font-size:13.5px;color:#5a6380;line-height:1.7;margin-bottom:6px;}
+
+.auth-footer{background:#0a1a3a;padding:18px 32px;margin-top:24px;text-align:center;}
+.auth-footer-inner{font-size:11px;color:#5a6e8a;line-height:1.8;}
+.auth-footer .fdic-b2{background:#c8202d;color:#fff;font-size:9px;font-weight:800;padding:2px 6px;border-radius:2px;letter-spacing:1px;display:inline;}
+
+/* progress bar for registration */
+.reg-progress{height:3px;background:#edf0f5;margin:-1px 0 0;}
+.reg-progress-fill{height:3px;background:#0a3880;transition:width .4s cubic-bezier(.4,0,.2,1);}
+
+/* screen transitions */
+.auth-screen{display:none;}
+.auth-screen.active{display:block;}
+
+@media(max-width:560px){
+  .auth-card-header{padding:20px 20px 18px;}
+  .auth-card-body{padding:20px 20px 24px;}
+  .af-2col,.af-3col{grid-template-columns:1fr;}
+  .auth-topbar{padding:0 16px;}
+  .auth-shell{padding:20px 12px calc(40px + env(safe-area-inset-bottom,0px));}
+  .auth-card{border-radius:8px;}
+  .reg-steps{font-size:10px;}
+  .reg-step{padding:8px 4px;}
+}
+@media(max-width:380px){
+  .reg-steps{display:grid;grid-template-columns:repeat(3,1fr);}
+  .reg-step{border-bottom:1px solid #dde0e7;}
+  .reg-step:nth-child(3){border-right:none;}
+}
+</style>
+
+<div id="auth-layer">
+
+  <!-- ─── SPLASH ─── -->
+  <div id="splash">
+    <div id="splash-bg">
+      <div class="splash-ring"></div>
+      <div class="splash-ring"></div>
+      <div class="splash-ring"></div>
+    </div>
+    <div id="splash-logo">
+      <svg id="splash-mark" viewBox="0 0 40 40" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+        <rect width="40" height="40" rx="10" fill="url(#bm-grad-splash)"/>
+        <rect x="10.5" y="20" width="5" height="11" rx="1.2" fill="#fff" fill-opacity=".55"/>
+        <rect x="17.5" y="14" width="5" height="17" rx="1.2" fill="#fff" fill-opacity=".88"/>
+        <rect x="24.5" y="8" width="5" height="23" rx="1.2" fill="#e8505f"/>
+        <defs><linearGradient id="bm-grad-splash" x1="0" y1="0" x2="40" y2="40" gradientUnits="userSpaceOnUse"><stop stop-color="#2c4d8c"/><stop offset="1" stop-color="#0f2456"/></linearGradient></defs>
+      </svg>
+      <div class="s-main">DOM BANK</div>
+      <span class="s-sub">National Association</span>
+      <div id="splash-bar"></div>
+    </div>
+    <div id="splash-tagline">Banking you can trust.</div>
+    <div id="splash-fdic">
+      <span class="fdic-b">FDIC</span>
+      <span>Member FDIC &nbsp;·&nbsp; Equal Housing Lender &nbsp;·&nbsp; Est. 1987</span>
+    </div>
+  </div>
+
+  <!-- ─── AUTH SCREENS ─── -->
+  <div id="auth-screens">
+    <div class="auth-topbar">
+      <div class="auth-logo-wrap">
+        <svg class="brand-mark" viewBox="0 0 40 40" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+          <rect width="40" height="40" rx="10" fill="url(#bm-grad-auth)"/>
+          <rect x="10.5" y="20" width="5" height="11" rx="1.2" fill="#fff" fill-opacity=".55"/>
+          <rect x="17.5" y="14" width="5" height="17" rx="1.2" fill="#fff" fill-opacity=".85"/>
+          <rect x="24.5" y="8" width="5" height="23" rx="1.2" fill="#c8202d"/>
+          <defs><linearGradient id="bm-grad-auth" x1="0" y1="0" x2="40" y2="40" gradientUnits="userSpaceOnUse"><stop stop-color="#16336e"/><stop offset="1" stop-color="#0a1a3a"/></linearGradient></defs>
+        </svg>
+        <span class="al-text"><span class="al-main">DOM BANK</span><span class="al-sub">N.A.</span></span>
+      </div>
+      <span class="auth-topbar-right">FDIC-Insured &nbsp;·&nbsp; 256-bit TLS</span>
+    </div>
+
+    <!-- ── LOGIN ── -->
+    <div id="auth-login" class="auth-screen active">
+      <div class="auth-shell">
+        <div class="auth-card">
+          <div class="auth-card-header">
+            <h1>Welcome back</h1>
+            <p>Sign in to DOM Bank Online Banking</p>
+          </div>
+          <div class="auth-card-body">
+
+            <div class="biometric-row">
+              <button class="bio-btn" onclick="alert('Face ID authentication coming soon.')">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
+                  <path d="M4 8V6a2 2 0 0 1 2-2h2"/><path d="M16 4h2a2 2 0 0 1 2 2v2"/><path d="M20 16v2a2 2 0 0 1-2 2h-2"/><path d="M8 20H6a2 2 0 0 1-2-2v-2"/>
+                  <circle cx="9" cy="11" r=".7" fill="currentColor" stroke="none"/><circle cx="15" cy="11" r=".7" fill="currentColor" stroke="none"/>
+                  <path d="M9 15c1 .9 2 .9 3 0"/>
+                </svg>
+                Face ID
+              </button>
+              <button class="bio-btn" onclick="alert('Fingerprint authentication coming soon.')">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
+                  <path d="M12 11.5a2.8 2.8 0 0 1 2.8 2.8c0 2.8-1 4.7-2 5.9"/>
+                  <path d="M9.2 19c1.3-1.8 1.8-3.5 1.8-4.7a1 1 0 0 1 2 0"/>
+                  <path d="M6.7 17c-.9-1.6-1.4-3.2-1.4-4.7a6.7 6.7 0 0 1 13.4 0c0 .8-.1 1.6-.3 2.3"/>
+                  <path d="M4 12.3a8 8 0 0 1 16 0c0 1-.1 1.9-.3 2.7"/>
+                  <path d="M8.3 8.7a4.2 4.2 0 0 1 7.4.6"/>
+                </svg>
+                Fingerprint
+              </button>
+            </div>
+            <div class="auth-divider"><span>or sign in with credentials</span></div>
+
+            <div class="af-row">
+              <label class="af-label">Username or Email</label>
+              <div class="af-input-icon">
+                <input class="af-input" id="li-user" type="text" placeholder="e.g. sarah.mitchell" autocomplete="username" />
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="3.4"/><path d="M5 20c0-3.5 3.1-6.3 7-6.3s7 2.8 7 6.3"/></svg>
+              </div>
+              <div class="af-err" id="li-user-err">Please enter your username or email.</div>
+            </div>
+            <div class="af-row">
+              <label class="af-label">Password</label>
+              <div class="pw-wrap af-input-icon">
+                <input class="af-input" id="li-pass" type="password" placeholder="Your password" autocomplete="current-password" />
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><rect x="4.5" y="10.5" width="15" height="10" rx="2"/><path d="M8 10.5V7.5a4 4 0 0 1 8 0v3"/></svg>
+                <button class="pw-toggle" type="button" onclick="togglePw('li-pass',this)">SHOW</button>
+              </div>
+              <div class="af-err" id="li-pass-err">Please enter your password.</div>
+            </div>
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px;font-size:12.5px;">
+              <label style="display:flex;align-items:center;gap:7px;cursor:pointer;color:#1a1f36;"><input type="checkbox" style="accent-color:#0a3880;width:14px;height:14px;" /> Remember this device</label>
+              <a style="color:#0a3880;font-weight:600;cursor:pointer;" onclick="alert('A password reset link will be sent to your registered email.')">Forgot password?</a>
+            </div>
+            <div id="li-err" class="af-err show" style="display:none;margin-bottom:14px;padding:10px 12px;background:#fff3f3;border-radius:4px;border-left:3px solid #c8202d;">Incorrect username or password. Please try again.</div>
+            <button class="auth-btn" onclick="doLogin()">Sign In</button>
+            <div class="auth-divider" style="margin:18px 0;"><span>New to DOM Bank?</span></div>
+            <button class="auth-btn-out" onclick="showAuthScreen('register')">Open an Account</button>
+            <div class="auth-secure">
+              <svg width="12" height="12" viewBox="0 0 14 14" fill="none"><path d="M7 1L2 3.5V7c0 3 2.2 5.4 5 6 2.8-.6 5-3 5-6V3.5L7 1z" fill="#8891aa"/></svg>
+              256-bit TLS encrypted &nbsp;·&nbsp; Session auto-locks after 10 min
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="auth-footer">
+        <div class="auth-footer-inner">
+          <span class="fdic-b2">FDIC</span>&nbsp; Deposits insured up to $250,000 per depositor &nbsp;·&nbsp; &copy; 2026 DOM Bank, N.A. All rights reserved.<br/>
+          1-800-DOM-BANK &nbsp;·&nbsp; 1290 Avenue of the Americas, New York, NY 10104
+        </div>
+      </div>
+    </div>
+
+    <!-- ── REGISTER (multi-step) ── -->
+    <div id="auth-register" class="auth-screen">
+      <div class="auth-shell" style="padding-top:32px;">
+        <div style="width:100%;max-width:520px;">
+
+          <!-- steps nav -->
+          <div class="reg-steps" id="reg-steps-bar">
+            <div class="reg-step active" id="rstep-1">1 Personal</div>
+            <div class="reg-step" id="rstep-2">2 Contact</div>
+            <div class="reg-step" id="rstep-3">3 Identity</div>
+            <div class="reg-step" id="rstep-4">4 Financial</div>
+            <div class="reg-step" id="rstep-5">5 Security</div>
+          </div>
+          <div class="reg-progress"><div class="reg-progress-fill" id="reg-prog" style="width:20%;"></div></div>
+
+          <div class="auth-card" style="border-radius:0 0 10px 10px;border-top:none;">
+
+            <!-- ══ STEP 1 — Personal Info ══ -->
+            <div id="reg-s1">
+              <div class="auth-card-header">
+                <h1>Personal Information</h1>
+                <p>Step 1 of 5 &nbsp;·&nbsp; This information must match your government-issued ID</p>
+              </div>
+              <div class="auth-card-body">
+                <div class="af-2col">
+                  <div class="af-row"><label class="af-label">Legal First Name <span class="req">*</span></label><input class="af-input" id="r-fname" placeholder="Sarah" /></div>
+                  <div class="af-row"><label class="af-label">Legal Last Name <span class="req">*</span></label><input class="af-input" id="r-lname" placeholder="Mitchell" /></div>
+                </div>
+                <div class="af-row"><label class="af-label">Middle Name <span style="font-weight:400;color:#8891aa;">(optional)</span></label><input class="af-input" id="r-mname" placeholder="Ann" /></div>
+                <div class="af-row"><label class="af-label">Suffix <span style="font-weight:400;color:#8891aa;">(optional)</span></label>
+                  <select class="af-select" id="r-suffix"><option value="">None</option><option>Jr.</option><option>Sr.</option><option>II</option><option>III</option><option>IV</option></select>
+                </div>
+                <div class="af-row"><label class="af-label">Date of Birth <span class="req">*</span></label>
+                  <input class="af-input" id="r-dob" type="date" max="2008-06-19" />
+                  <div class="af-hint">You must be at least 18 years old to open an account.</div>
+                  <div class="af-err" id="r-dob-err">You must be at least 18 years old.</div>
+                </div>
+                <div class="af-row"><label class="af-label">Gender <span style="font-weight:400;color:#8891aa;">(optional, for identity verification)</span></label>
+                  <select class="af-select" id="r-gender"><option value="">Prefer not to say</option><option>Male</option><option>Female</option><option>Non-binary</option><option>Other</option></select>
+                </div>
+                <div class="af-row"><label class="af-label">Marital Status <span style="font-weight:400;color:#8891aa;">(optional)</span></label>
+                  <select class="af-select" id="r-marital"><option value="">Select…</option><option>Single</option><option>Married</option><option>Domestic Partnership</option><option>Divorced</option><option>Widowed</option><option>Prefer not to say</option></select>
+                </div>
+                <div class="af-row"><label class="af-label">Mother's Maiden Name <span class="req">*</span></label>
+                  <input class="af-input" id="r-maiden" placeholder="Security question for identity verification" />
+                  <div class="af-hint">Used for identity verification only. Never shared.</div>
+                </div>
+                <div style="display:flex;gap:10px;margin-top:8px;">
+                  <button class="auth-btn auth-btn-icon" onclick="regNext(1)">Continue <svg class="chev-r" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6l6 6-6 6"/></svg></button>
+                </div>
+              </div>
+            </div>
+
+            <!-- ══ STEP 2 — Contact Info ══ -->
+            <div id="reg-s2" style="display:none;">
+              <div class="auth-card-header">
+                <h1>Contact Information</h1>
+                <p>Step 2 of 5 &nbsp;·&nbsp; Your primary residence and contact details</p>
+              </div>
+              <div class="auth-card-body">
+                <div class="af-row"><label class="af-label">Email Address <span class="req">*</span></label>
+                  <input class="af-input" id="r-email" type="email" placeholder="sarah@example.com" autocomplete="email" />
+                  <div class="af-hint">Used for statements, alerts, and account access.</div>
+                  <div class="af-err" id="r-email-err">Enter a valid email address.</div>
+                </div>
+                <div class="af-row"><label class="af-label">Confirm Email <span class="req">*</span></label>
+                  <input class="af-input" id="r-email2" type="email" placeholder="Confirm your email" />
+                  <div class="af-err" id="r-email2-err">Emails do not match.</div>
+                </div>
+                <div class="af-row"><label class="af-label">Primary Phone <span class="req">*</span></label>
+                  <input class="af-input" id="r-phone" type="tel" placeholder="(555) 000-0000" oninput="fmtPhone(this)" maxlength="14" />
+                  <div class="af-err" id="r-phone-err">Enter a valid 10-digit US phone number.</div>
+                </div>
+                <div class="af-row"><label class="af-label">Secondary Phone <span style="font-weight:400;color:#8891aa;">(optional)</span></label>
+                  <input class="af-input" id="r-phone2" type="tel" placeholder="(555) 000-0000" oninput="fmtPhone(this)" maxlength="14" />
+                </div>
+                <div class="af-row"><label class="af-label">Street Address <span class="req">*</span></label>
+                  <input class="af-input" id="r-addr" placeholder="123 Main Street" />
+                </div>
+                <div class="af-row"><label class="af-label">Apt / Suite / Unit <span style="font-weight:400;color:#8891aa;">(optional)</span></label>
+                  <input class="af-input" id="r-addr2" placeholder="Apt 4B" />
+                </div>
+                <div class="af-3col">
+                  <div class="af-row" style="margin-bottom:0;"><label class="af-label">City <span class="req">*</span></label><input class="af-input" id="r-city" placeholder="New York" /></div>
+                  <div class="af-row" style="margin-bottom:0;"><label class="af-label">State <span class="req">*</span></label>
+                    <select class="af-select" id="r-state"><option value="">—</option><option>AL</option><option>AK</option><option>AZ</option><option>AR</option><option>CA</option><option>CO</option><option>CT</option><option>DE</option><option>FL</option><option>GA</option><option>HI</option><option>ID</option><option>IL</option><option>IN</option><option>IA</option><option>KS</option><option>KY</option><option>LA</option><option>ME</option><option>MD</option><option>MA</option><option>MI</option><option>MN</option><option>MS</option><option>MO</option><option>MT</option><option>NE</option><option>NV</option><option>NH</option><option>NJ</option><option>NM</option><option>NY</option><option>NC</option><option>ND</option><option>OH</option><option>OK</option><option>OR</option><option>PA</option><option>RI</option><option>SC</option><option>SD</option><option>TN</option><option>TX</option><option>UT</option><option>VT</option><option>VA</option><option>WA</option><option>WV</option><option>WI</option><option>WY</option><option>DC</option></select>
+                  </div>
+                  <div class="af-row" style="margin-bottom:0;"><label class="af-label">ZIP <span class="req">*</span></label><input class="af-input" id="r-zip" placeholder="10001" maxlength="5" /></div>
+                </div>
+                <div class="af-row" style="margin-top:14px;"><label class="af-label">Residency Status <span class="req">*</span></label>
+                  <select class="af-select" id="r-residency"><option value="">Select…</option><option>U.S. Citizen</option><option>U.S. Permanent Resident (Green Card)</option><option>Non-Resident Alien with ITIN</option><option>Visa Holder (work/student/other)</option></select>
+                  <div class="af-hint">Required under the USA PATRIOT Act for Customer Identification Program (CIP) compliance.</div>
+                </div>
+                <div style="display:flex;gap:10px;margin-top:8px;">
+                  <button class="auth-btn-out auth-btn-icon" style="width:auto;padding:13px 22px;" onclick="regBack(2)"><svg class="chev-l" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 6l-6 6 6 6"/></svg> Back</button>
+                  <button class="auth-btn auth-btn-icon" onclick="regNext(2)">Continue <svg class="chev-r" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6l6 6-6 6"/></svg></button>
+                </div>
+              </div>
+            </div>
+
+            <!-- ══ STEP 3 — Identity Verification ══ -->
+            <div id="reg-s3" style="display:none;">
+              <div class="auth-card-header">
+                <h1>Identity Verification</h1>
+                <p>Step 3 of 5 &nbsp;·&nbsp; Required by federal law (USA PATRIOT Act / BSA)</p>
+              </div>
+              <div class="auth-card-body">
+                <div style="background:#fff8e1;border-left:3px solid #e6a817;border-radius:0 4px 4px 0;padding:11px 14px;margin-bottom:20px;font-size:12.5px;color:#7a5000;display:flex;gap:8px;align-items:flex-start;"><svg width="13" height="13" viewBox="0 0 14 14" fill="none" style="flex-shrink:0;margin-top:2px;"><rect x="2" y="6" width="10" height="7" rx="1.5" stroke="#7a5000" stroke-width="1.3"/><path d="M4.5 6V4.5a2.5 2.5 0 015 0V6" stroke="#7a5000" stroke-width="1.3" stroke-linecap="round"/></svg><span>All identity information is encrypted with 256-bit TLS and stored on secure, FDIC-regulated servers. DOM Bank is required to collect this information under the Customer Identification Program (CIP).</span></div>
+
+                <div class="af-row"><label class="af-label">Social Security Number (SSN) <span class="req">*</span></label>
+                  <div class="ssn-wrap">
+                    <input class="af-input" id="r-ssn" type="password" placeholder="•••-••-••••" maxlength="11" autocomplete="off" oninput="fmtSSNReg(this)" />
+                    <button class="pw-toggle" type="button" onclick="togglePw('r-ssn',this)">SHOW</button>
+                  </div>
+                  <div class="af-hint">Format: XXX-XX-XXXX &nbsp;·&nbsp; Required for IRS tax reporting and fraud prevention.</div>
+                  <div class="af-err" id="r-ssn-err">Please enter a valid SSN (XXX-XX-XXXX).</div>
+                </div>
+
+                <div class="af-row"><label class="af-label">Primary ID Type <span class="req">*</span></label>
+                  <select class="af-select" id="r-idtype" onchange="togglePassport()">
+                    <option value="">Select…</option>
+                    <option value="dl">Driver's License</option>
+                    <option value="state">State ID Card</option>
+                    <option value="passport">U.S. Passport</option>
+                    <option value="military">Military ID</option>
+                  </select>
+                </div>
+                <div id="r-dl-fields">
+                  <div class="af-2col">
+                    <div class="af-row"><label class="af-label">ID Number <span class="req">*</span></label><input class="af-input" id="r-idnum" placeholder="e.g. D1234567" /></div>
+                    <div class="af-row"><label class="af-label">Issuing State <span class="req">*</span></label>
+                      <select class="af-select" id="r-idstate"><option value="">—</option><option>AL</option><option>AK</option><option>AZ</option><option>AR</option><option>CA</option><option>CO</option><option>CT</option><option>DE</option><option>FL</option><option>GA</option><option>HI</option><option>ID</option><option>IL</option><option>IN</option><option>IA</option><option>KS</option><option>KY</option><option>LA</option><option>ME</option><option>MD</option><option>MA</option><option>MI</option><option>MN</option><option>MS</option><option>MO</option><option>MT</option><option>NE</option><option>NV</option><option>NH</option><option>NJ</option><option>NM</option><option>NY</option><option>NC</option><option>ND</option><option>OH</option><option>OK</option><option>OR</option><option>PA</option><option>RI</option><option>SC</option><option>SD</option><option>TN</option><option>TX</option><option>UT</option><option>VT</option><option>VA</option><option>WA</option><option>WV</option><option>WI</option><option>WY</option><option>DC</option></select>
+                    </div>
+                  </div>
+                  <div class="af-2col">
+                    <div class="af-row"><label class="af-label">Issue Date <span class="req">*</span></label><input class="af-input" id="r-idissue" type="date" /></div>
+                    <div class="af-row"><label class="af-label">Expiration Date <span class="req">*</span></label><input class="af-input" id="r-idexp" type="date" /></div>
+                  </div>
+                </div>
+                <div id="r-passport-fields" style="display:none;">
+                  <div class="af-2col">
+                    <div class="af-row"><label class="af-label">Passport Number <span class="req">*</span></label><input class="af-input" id="r-passport" placeholder="e.g. 123456789" /></div>
+                    <div class="af-row"><label class="af-label">Expiration Date <span class="req">*</span></label><input class="af-input" id="r-passport-exp" type="date" /></div>
+                  </div>
+                </div>
+
+                <div class="af-row"><label class="af-label">Citizenship / Nationality <span class="req">*</span></label>
+                  <select class="af-select" id="r-citizen"><option value="">Select…</option><option>United States</option><option>Canada</option><option>United Kingdom</option><option>Mexico</option><option>Other</option></select>
+                </div>
+
+                <div class="af-row"><label class="af-label">Are you subject to U.S. tax reporting? <span class="req">*</span></label>
+                  <select class="af-select" id="r-taxus"><option value="">Select…</option><option value="yes">Yes — U.S. Person (citizen, resident, or green card holder)</option><option value="no">No — Non-U.S. Person (W-8BEN required)</option></select>
+                  <div class="af-hint">Required under FATCA and IRS regulations.</div>
+                </div>
+
+                <div style="display:flex;gap:10px;margin-top:8px;">
+                  <button class="auth-btn-out auth-btn-icon" style="width:auto;padding:13px 22px;" onclick="regBack(3)"><svg class="chev-l" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 6l-6 6 6 6"/></svg> Back</button>
+                  <button class="auth-btn auth-btn-icon" onclick="regNext(3)">Continue <svg class="chev-r" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6l6 6-6 6"/></svg></button>
+                </div>
+              </div>
+            </div>
+
+            <!-- ══ STEP 4 — Financial Profile ══ -->
+            <div id="reg-s4" style="display:none;">
+              <div class="auth-card-header">
+                <h1>Financial Profile</h1>
+                <p>Step 4 of 5 &nbsp;·&nbsp; Required for account type selection and regulatory compliance</p>
+              </div>
+              <div class="auth-card-body">
+                <div style="background:#f0f4fc;border:1px solid #bfcde8;border-radius:4px;padding:12px 14px;margin-bottom:20px;font-size:12px;color:#0a3880;">Under the Bank Secrecy Act (BSA) and FinCEN regulations, DOM Bank is required to understand the nature and purpose of customer relationships.</div>
+
+                <div class="af-row"><label class="af-label">Employment Status <span class="req">*</span></label>
+                  <select class="af-select" id="r-employ" onchange="toggleEmployer()"><option value="">Select…</option><option value="employed">Full-time Employed</option><option value="part">Part-time Employed</option><option value="self">Self-Employed / Business Owner</option><option value="retired">Retired</option><option value="student">Student</option><option value="unemployed">Unemployed / Not Currently Working</option></select>
+                </div>
+                <div id="r-employer-row" style="display:none;">
+                  <div class="af-row"><label class="af-label">Employer / Business Name <span class="req">*</span></label><input class="af-input" id="r-employer" placeholder="ACME Corporation" /></div>
+                  <div class="af-row"><label class="af-label">Occupation / Job Title <span class="req">*</span></label><input class="af-input" id="r-jobtitle" placeholder="Software Engineer" /></div>
+                  <div class="af-row"><label class="af-label">Industry <span class="req">*</span></label>
+                    <select class="af-select" id="r-industry"><option value="">Select…</option><option>Agriculture</option><option>Construction</option><option>Education</option><option>Finance & Banking</option><option>Government</option><option>Healthcare</option><option>Hospitality</option><option>Legal</option><option>Manufacturing</option><option>Media & Entertainment</option><option>Non-Profit</option><option>Real Estate</option><option>Retail</option><option>Technology</option><option>Transportation</option><option>Other</option></select>
+                  </div>
+                </div>
+                <div class="af-row"><label class="af-label">Annual Gross Income <span class="req">*</span></label>
+                  <select class="af-select" id="r-income"><option value="">Select…</option><option>Under $25,000</option><option>$25,000 – $49,999</option><option>$50,000 – $74,999</option><option>$75,000 – $99,999</option><option>$100,000 – $149,999</option><option>$150,000 – $249,999</option><option>$250,000 – $499,999</option><option>$500,000+</option></select>
+                  <div class="af-hint">Includes all income sources. Used to determine account features and comply with BSA.</div>
+                </div>
+                <div class="af-row"><label class="af-label">Source of Funds <span class="req">*</span></label>
+                  <select class="af-select" id="r-fundsource"><option value="">Select…</option><option>Employment / Salary</option><option>Business Income</option><option>Investments / Dividends</option><option>Retirement / Pension</option><option>Inheritance / Gift</option><option>Social Security / Disability</option><option>Real Estate / Rental Income</option><option>Other</option></select>
+                  <div class="af-hint">Required under anti-money laundering (AML) regulations.</div>
+                </div>
+                <div class="af-row"><label class="af-label">Estimated Monthly Deposits <span class="req">*</span></label>
+                  <select class="af-select" id="r-deposits"><option value="">Select…</option><option>Under $1,000</option><option>$1,000 – $2,499</option><option>$2,500 – $4,999</option><option>$5,000 – $9,999</option><option>$10,000 – $24,999</option><option>$25,000+</option></select>
+                </div>
+                <div class="af-row"><label class="af-label">Primary Purpose of Account <span class="req">*</span></label>
+                  <select class="af-select" id="r-purpose"><option value="">Select…</option><option>Everyday spending / bill pay</option><option>Savings / wealth building</option><option>Business / commercial use</option><option>Payroll receipt</option><option>Investment activity</option><option>International transfers</option><option>Other</option></select>
+                </div>
+                <div class="af-row"><label class="af-label">Housing Status <span class="req">*</span></label>
+                  <select class="af-select" id="r-housing"><option value="">Select…</option><option>Own (mortgage)</option><option>Own (no mortgage)</option><option>Rent</option><option>Live with family</option><option>Other</option></select>
+                </div>
+                <div class="af-check-row" style="margin-top:6px;">
+                  <input type="checkbox" id="r-pep" />
+                  <label for="r-pep">I am (or am related to / closely associated with) a current or former <strong>Politically Exposed Person (PEP)</strong> — a senior government official, military officer, or similar figure in any country.</label>
+                </div>
+                <div class="af-check-row">
+                  <input type="checkbox" id="r-foreign" />
+                  <label for="r-foreign">I have foreign bank accounts or financial interests outside the United States (FBAR reporting may apply).</label>
+                </div>
+                <div style="display:flex;gap:10px;margin-top:8px;">
+                  <button class="auth-btn-out" style="width:auto;padding:13px 22px;" onclick="regBack(4)">← Back</button>
+                  <button class="auth-btn" onclick="regNext(4)">Continue →</button>
+                </div>
+              </div>
+            </div>
+
+            <!-- ══ STEP 5 — Security Setup ══ -->
+            <div id="reg-s5" style="display:none;">
+              <div class="auth-card-header">
+                <h1>Secure Your Account</h1>
+                <p>Step 5 of 5 &nbsp;·&nbsp; Create your login credentials and security preferences</p>
+              </div>
+              <div class="auth-card-body">
+                <div class="af-row"><label class="af-label">Choose a Username <span class="req">*</span></label>
+                  <input class="af-input" id="r-uname" placeholder="e.g. sarah.mitchell" autocomplete="username" oninput="checkUsername()" />
+                  <div class="af-hint">6–30 characters. Letters, numbers, periods, and underscores only.</div>
+                  <div class="af-err" id="r-uname-err">Username is invalid or already taken.</div>
+                </div>
+                <div class="af-row"><label class="af-label">Password <span class="req">*</span></label>
+                  <div class="pw-wrap">
+                    <input class="af-input" id="r-pw" type="password" placeholder="Create a strong password" autocomplete="new-password" oninput="checkPwStrength(this.value)" />
+                    <button class="pw-toggle" type="button" onclick="togglePw('r-pw',this)">SHOW</button>
+                  </div>
+                  <div id="pw-strength-bars"><div class="psb" id="psb1"></div><div class="psb" id="psb2"></div><div class="psb" id="psb3"></div><div class="psb" id="psb4"></div></div>
+                  <div id="pw-strength-label" style="color:#8891aa;">Enter a password</div>
+                  <div class="af-hint" style="margin-top:6px;">Min 8 chars · 1 uppercase · 1 number · 1 special character (!@#$%^&*)</div>
+                  <div class="af-err" id="r-pw-err">Password does not meet requirements.</div>
+                </div>
+                <div class="af-row"><label class="af-label">Confirm Password <span class="req">*</span></label>
+                  <div class="pw-wrap">
+                    <input class="af-input" id="r-pw2" type="password" placeholder="Re-enter password" autocomplete="new-password" />
+                    <button class="pw-toggle" type="button" onclick="togglePw('r-pw2',this)">SHOW</button>
+                  </div>
+                  <div class="af-err" id="r-pw2-err">Passwords do not match.</div>
+                </div>
+
+                <div style="margin:20px 0 14px;"><div class="af-label" style="margin-bottom:10px;">Security Questions <span class="req">*</span></div>
+                  <div class="af-row"><label class="af-label" style="font-weight:400;color:#5a6380;">Question 1</label>
+                    <select class="af-select" id="r-sq1"><option value="">Select a question…</option><option>What was the name of your first pet?</option><option>What city were you born in?</option><option>What is your mother's maiden name?</option><option>What was the make of your first car?</option><option>What elementary school did you attend?</option></select>
+                    <input class="af-input" id="r-sa1" placeholder="Your answer" style="margin-top:8px;" />
+                  </div>
+                  <div class="af-row"><label class="af-label" style="font-weight:400;color:#5a6380;">Question 2</label>
+                    <select class="af-select" id="r-sq2"><option value="">Select a question…</option><option>What street did you grow up on?</option><option>What was your childhood nickname?</option><option>What is the name of your oldest sibling?</option><option>In what city did you meet your spouse/partner?</option><option>What was the name of your first employer?</option></select>
+                    <input class="af-input" id="r-sa2" placeholder="Your answer" style="margin-top:8px;" />
+                  </div>
+                </div>
+
+                <div class="af-row"><label class="af-label">Preferred Delivery for One-Time Codes <span class="req">*</span></label>
+                  <select class="af-select" id="r-mfa"><option value="sms">SMS / Text Message</option><option value="email">Email</option><option value="app">Authenticator App (Recommended)</option></select>
+                </div>
+
+                <div style="background:#f7f9ff;border:1px solid #bfcde8;border-radius:4px;padding:14px;margin-bottom:20px;font-size:12px;color:#1a1f36;line-height:1.7;">By submitting this application you authorize DOM Bank to obtain a <strong>soft credit inquiry</strong> (does not affect your credit score) to verify your identity. A hard inquiry is only performed if you apply for a credit product.</div>
+
+                <div class="af-check-row">
+                  <input type="checkbox" id="r-agree1" />
+                  <label for="r-agree1">I agree to the <a onclick="showPage('fp-terms');return false;" href="#">Terms of Service</a>, <a onclick="showPage('fp-privacy');return false;" href="#">Privacy Policy</a>, and <a href="#">Electronic Communications Agreement</a>.</label>
+                </div>
+                <div class="af-check-row">
+                  <input type="checkbox" id="r-agree2" />
+                  <label for="r-agree2">I agree to the <a href="#">Deposit Account Agreement</a> and <a href="#">Schedule of Fees</a>. I understand that my deposits are FDIC-insured up to $250,000.</label>
+                </div>
+                <div class="af-check-row">
+                  <input type="checkbox" id="r-agree3" />
+                  <label for="r-agree3">I certify that all information provided is accurate and complete. I understand that providing false information is a federal crime under 18 U.S.C. § 1014.</label>
+                </div>
+                <div class="af-check-row">
+                  <input type="checkbox" id="r-paperless" checked />
+                  <label for="r-paperless">Enroll in paperless statements (recommended). You can change this anytime after opening.</label>
+                </div>
+                <div class="af-check-row">
+                  <input type="checkbox" id="r-marketing" />
+                  <label for="r-marketing">Send me promotional offers and product updates from DOM Bank. (Optional — unsubscribe anytime.)</label>
+                </div>
+
+                <div id="r-final-err" class="af-err show" style="display:none;margin-bottom:14px;padding:10px 12px;background:#fff3f3;border-radius:4px;border-left:3px solid #c8202d;">Please complete all required fields and agree to the required terms.</div>
+
+                <div style="display:flex;gap:10px;margin-top:8px;">
+                  <button class="auth-btn-out" style="width:auto;padding:13px 22px;" onclick="regBack(5)">← Back</button>
+                  <button class="auth-btn" id="reg-submit-btn" onclick="regSubmit()">Open My Account</button>
+                </div>
+                <div class="auth-secure" style="margin-top:16px;">
+                  <svg width="12" height="12" viewBox="0 0 14 14" fill="none"><path d="M7 1L2 3.5V7c0 3 2.2 5.4 5 6 2.8-.6 5-3 5-6V3.5L7 1z" fill="#8891aa"/></svg>
+                  256-bit TLS encrypted &nbsp;·&nbsp; FDIC-insured &nbsp;·&nbsp; USA PATRIOT Act compliant
+                </div>
+              </div>
+            </div>
+
+            <!-- ══ SUCCESS ══ -->
+            <div id="reg-success">
+              <div style="background:#0a3880;padding:28px 32px 24px;">
+                <h1 style="font-size:22px;font-weight:800;color:#fff;margin-bottom:4px;">Account Opened!</h1>
+                <p style="font-size:13px;color:rgba(255,255,255,.65);">Welcome to DOM Bank — your future starts now.</p>
+              </div>
+              <div style="padding:32px;text-align:center;">
+                <div style="width:72px;height:72px;background:#ddf2e8;border-radius:50%;display:flex;align-items:center;justify-content:center;margin:0 auto 20px;">
+                  <svg width="36" height="36" viewBox="0 0 36 36" fill="none"><path d="M7 18l8 8 14-16" stroke="#1a7a44" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                </div>
+                <h2 style="font-size:20px;font-weight:800;color:#0a1a3a;margin-bottom:8px;">Welcome, <span id="reg-welcome-name"></span>!</h2>
+                <p style="font-size:13.5px;color:#5a6380;margin-bottom:6px;line-height:1.7;">Your DOM Bank account has been created successfully.</p>
+                <div style="background:#f7f9ff;border-radius:4px;border:1px solid #bfcde8;padding:14px 18px;margin:20px 0;text-align:left;">
+                  <div style="font-size:10.5px;font-weight:700;color:#7a85a0;text-transform:uppercase;letter-spacing:1px;margin-bottom:10px;">What happens next</div>
+                  <div style="font-size:13px;color:#1a1f36;line-height:2;"><div>✦ Verification email sent to your address</div><div>✦ Identity verified within 1–2 business days</div><div>✦ Debit card mailed within 7–10 business days</div><div>✦ Account number assigned upon verification</div></div>
+                </div>
+                <div style="font-size:12px;color:#8891aa;margin-bottom:24px;">Your application reference: <strong id="reg-ref" style="color:#0a3880;letter-spacing:1.5px;"></strong></div>
+                <button class="auth-btn" onclick="enterApp()">Go to Online Banking →</button>
+              </div>
+            </div>
+
+          </div><!-- /auth-card -->
+
+          <div class="auth-switch" style="margin-top:16px;">Already have an account? <a onclick="showAuthScreen('login')">Sign In</a></div>
+        </div>
+      </div>
+      <div class="auth-footer">
+        <div class="auth-footer-inner">
+          <span class="fdic-b2">FDIC</span>&nbsp; Deposits insured up to $250,000 &nbsp;·&nbsp; Member FDIC &nbsp;·&nbsp; Equal Housing Lender &nbsp;·&nbsp; &copy; 2026 DOM Bank, N.A.<br/>
+          Accounts are subject to approval. DOM Bank complies with the USA PATRIOT Act, Bank Secrecy Act, and all applicable federal and state banking regulations.
+        </div>
+      </div>
+    </div><!-- /auth-register -->
+
+  </div><!-- /auth-screens -->
+</div><!-- /auth-layer -->
+
+<script>
+// ──────────────────────────────────────────────
+//  AUTH LAYER LOGIC
+// ──────────────────────────────────────────────
+
+// Splash → auth screens after 2.6 s
+window.addEventListener('DOMContentLoaded', function() {
+  setTimeout(function() {
+    const splash = document.getElementById('splash');
+    const screens = document.getElementById('auth-screens');
+    splash.style.transition = 'opacity .55s ease';
+    splash.style.opacity = '0';
+    setTimeout(function() {
+      splash.style.display = 'none';
+      screens.style.display = 'block';
+    }, 560);
+  }, 2600);
+});
+
+function showAuthScreen(id) {
+  document.querySelectorAll('.auth-screen').forEach(function(s){ s.classList.remove('active'); });
+  document.getElementById('auth-' + id).classList.add('active');
+  document.getElementById('auth-screens').scrollTop = 0;
+}
+
+function enterApp() {
+  const layer = document.getElementById('auth-layer');
+  layer.style.transition = 'opacity .4s ease';
+  layer.style.opacity = '0';
+  setTimeout(function(){ layer.style.display = 'none'; }, 420);
+}
+
+// ── Login ──
+function doLogin() {
+  const u = document.getElementById('li-user').value.trim();
+  const p = document.getElementById('li-pass').value;
+  let ok = true;
+  if (!u) { showErr('li-user-err'); showErr2('li-user'); ok=false; } else { hideErr('li-user-err'); hideErr2('li-user'); }
+  if (!p) { showErr('li-pass-err'); showErr2('li-pass'); ok=false; } else { hideErr('li-pass-err'); hideErr2('li-pass'); }
+  if (!ok) return;
+  // Demo: any credentials work
+  enterApp();
+}
+
+// ── Register navigation ──
+const REG_STEPS = 5;
+let currentRegStep = 1;
+
+function updateRegProgress(step) {
+  document.querySelectorAll('.reg-step').forEach(function(el,i){
+    el.classList.remove('active','done');
+    if (i+1 < step) el.classList.add('done');
+    else if (i+1 === step) el.classList.add('active');
+  });
+  document.getElementById('reg-prog').style.width = (step/REG_STEPS*100)+'%';
+  document.getElementById('auth-screens').scrollTop = 0;
+}
+
+function showRegStep(step) {
+  for (var i=1; i<=REG_STEPS; i++) {
+    var el = document.getElementById('reg-s'+i);
+    if (el) el.style.display = (i===step) ? 'block' : 'none';
+  }
+  document.getElementById('reg-success').style.display = 'none';
+  document.getElementById('reg-steps-bar').style.display = 'flex';
+  currentRegStep = step;
+  updateRegProgress(step);
+}
+
+function regNext(step) {
+  if (step === 1) {
+    if (!document.getElementById('r-fname').value.trim() || !document.getElementById('r-lname').value.trim() || !document.getElementById('r-dob').value || !document.getElementById('r-maiden').value.trim()) {
+      alert('Please fill in all required fields (First Name, Last Name, Date of Birth, Mother\'s Maiden Name).'); return;
+    }
+    showRegStep(2);
+  } else if (step === 2) {
+    const email = document.getElementById('r-email').value.trim();
+    const email2 = document.getElementById('r-email2').value.trim();
+    const phone = document.getElementById('r-phone').value.trim();
+    if (!email || !email.includes('@') || email !== email2 || !phone || !document.getElementById('r-addr').value.trim() || !document.getElementById('r-city').value.trim() || !document.getElementById('r-state').value || !document.getElementById('r-zip').value.trim() || !document.getElementById('r-residency').value) {
+      alert('Please fill in all required fields and ensure emails match.'); return;
+    }
+    showRegStep(3);
+  } else if (step === 3) {
+    if (!document.getElementById('r-ssn').value || !document.getElementById('r-idtype').value || !document.getElementById('r-citizen').value || !document.getElementById('r-taxus').value) {
+      alert('Please fill in all required identity fields.'); return;
+    }
+    showRegStep(4);
+  } else if (step === 4) {
+    if (!document.getElementById('r-employ').value || !document.getElementById('r-income').value || !document.getElementById('r-fundsource').value || !document.getElementById('r-deposits').value || !document.getElementById('r-purpose').value || !document.getElementById('r-housing').value) {
+      alert('Please fill in all required financial profile fields.'); return;
+    }
+    showRegStep(5);
+  }
+}
+
+function regBack(step) {
+  showRegStep(step - 1);
+}
+
+function regSubmit() {
+  const uname = document.getElementById('r-uname').value.trim();
+  const pw = document.getElementById('r-pw').value;
+  const pw2 = document.getElementById('r-pw2').value;
+  const agree1 = document.getElementById('r-agree1').checked;
+  const agree2 = document.getElementById('r-agree2').checked;
+  const agree3 = document.getElementById('r-agree3').checked;
+  if (!uname || !pw || pw !== pw2 || !agree1 || !agree2 || !agree3 || !document.getElementById('r-sq1').value || !document.getElementById('r-sa1').value.trim() || !document.getElementById('r-sq2').value || !document.getElementById('r-sa2').value.trim()) {
+    document.getElementById('r-final-err').style.display = 'block'; return;
+  }
+  document.getElementById('r-final-err').style.display = 'none';
+  const btn = document.getElementById('reg-submit-btn');
+  btn.textContent = 'Processing…'; btn.disabled = true;
+  setTimeout(function() {
+    for (var i=1; i<=REG_STEPS; i++) { var el=document.getElementById('reg-s'+i); if(el)el.style.display='none'; }
+    document.getElementById('reg-steps-bar').style.display = 'none';
+    document.getElementById('reg-success').style.display = 'block';
+    var fname = document.getElementById('r-fname').value;
+    var lname = document.getElementById('r-lname').value;
+    document.getElementById('reg-welcome-name').textContent = fname + ' ' + lname;
+    document.getElementById('reg-ref').textContent = 'DOM-' + Math.floor(Math.random()*9000000+1000000);
+    btn.textContent = 'Open My Account'; btn.disabled = false;
+  }, 1800);
+}
+
+// ── Helpers ──
+function togglePw(id, btn) {
+  const el = document.getElementById(id);
+  el.type = el.type === 'password' ? 'text' : 'password';
+  btn.textContent = el.type === 'password' ? 'SHOW' : 'HIDE';
+}
+
+function showErr(id){ const e=document.getElementById(id); if(e)e.classList.add('show'); }
+function hideErr(id){ const e=document.getElementById(id); if(e)e.classList.remove('show'); }
+function showErr2(id){ const e=document.getElementById(id); if(e)e.classList.add('err'); }
+function hideErr2(id){ const e=document.getElementById(id); if(e)e.classList.remove('err'); }
+
+function fmtPhone(el){
+  let v=el.value.replace(/\D/g,'');
+  if(v.length>6) v='('+v.slice(0,3)+') '+v.slice(3,6)+'-'+v.slice(6,10);
+  else if(v.length>3) v='('+v.slice(0,3)+') '+v.slice(3);
+  else if(v.length) v='('+v;
+  el.value=v;
+}
+
+function fmtSSNReg(el){
+  let v=el.value.replace(/\D/g,'');
+  if(v.length>5) v=v.slice(0,3)+'-'+v.slice(3,5)+'-'+v.slice(5,9);
+  else if(v.length>3) v=v.slice(0,3)+'-'+v.slice(3);
+  el.value=v;
+}
+
+function togglePassport(){
+  const t=document.getElementById('r-idtype').value;
+  document.getElementById('r-dl-fields').style.display=(t==='passport')?'none':'block';
+  document.getElementById('r-passport-fields').style.display=(t==='passport')?'block':'none';
+}
+
+function toggleEmployer(){
+  const v=document.getElementById('r-employ').value;
+  document.getElementById('r-employer-row').style.display=(v==='employed'||v==='part'||v==='self')?'block':'none';
+}
+
+function checkUsername(){
+  const v=document.getElementById('r-uname').value.trim();
+  const valid=/^[a-zA-Z0-9._]{6,30}$/.test(v);
+  document.getElementById('r-uname-err').classList.toggle('show',!valid&&v.length>0);
+  document.getElementById('r-uname').classList.toggle('err',!valid&&v.length>0);
+}
+
+function checkPwStrength(pw){
+  let score=0;
+  if(pw.length>=8) score++;
+  if(/[A-Z]/.test(pw)) score++;
+  if(/[0-9]/.test(pw)) score++;
+  if(/[^A-Za-z0-9]/.test(pw)) score++;
+  const colors=['#c8202d','#e6a817','#0a3880','#1a7a44'];
+  const labels=['Weak','Fair','Good','Strong'];
+  for(let i=0;i<4;i++){
+    document.getElementById('psb'+(i+1)).style.background=i<score?colors[score-1]:'#edf0f5';
+  }
+  const lbl=document.getElementById('pw-strength-label');
+  if(!pw){lbl.textContent='Enter a password';lbl.style.color='#8891aa';}
+  else{lbl.textContent=labels[score-1]||'Weak';lbl.style.color=colors[score-1]||'#c8202d';}
+}
+</script>
+
 <div id="topbar">
   <span>Secure Session &mdash; Last sign-in: Today at 9:42 AM ET &nbsp;&middot;&nbsp; 1-800-366-2265</span>
   <span>FDIC-Insured &nbsp;&middot;&nbsp; Member FDIC &nbsp;&middot;&nbsp; Equal Housing Lender</span>
@@ -193,8 +1005,14 @@ footer .ehl-badge{border:1.5px solid #5a6e8a;color:#5a6e8a;font-size:9.5px;font-
 
 <div id="header">
   <a id="logo" onclick="showPage('dashboard');return false;" href="#">
-    <span class="logo-main">DOM BANK</span>
-    <span class="logo-sub">N.A.</span>
+    <svg class="brand-mark" viewBox="0 0 40 40" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+      <rect width="40" height="40" rx="10" fill="url(#bm-grad-header)"/>
+      <rect x="10.5" y="20" width="5" height="11" rx="1.2" fill="#fff" fill-opacity=".55"/>
+      <rect x="17.5" y="14" width="5" height="17" rx="1.2" fill="#fff" fill-opacity=".85"/>
+      <rect x="24.5" y="8" width="5" height="23" rx="1.2" fill="#c8202d"/>
+      <defs><linearGradient id="bm-grad-header" x1="0" y1="0" x2="40" y2="40" gradientUnits="userSpaceOnUse"><stop stop-color="#16336e"/><stop offset="1" stop-color="#0a1a3a"/></linearGradient></defs>
+    </svg>
+    <span class="logo-text"><span class="logo-main">DOM BANK</span><span class="logo-sub">N.A.</span></span>
   </a>
   <nav id="main-nav">
     <button class="active" data-page="dashboard">Dashboard</button>
